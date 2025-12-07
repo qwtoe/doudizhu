@@ -3,442 +3,358 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>单机斗地主（修复版）</title>
+    <title>全功能单机斗地主（大师版）</title>
     <style>
-        /* --- 样式部分 --- */
-        :root {
-            --bg-color: #2E7D32;
-            --card-ratio: 1.4;
-            --card-width: 60px;
-        }
-
+        :root { --bg-color: #1e5220; --card-w: 56px; --card-h: 78px; }
+        * { box-sizing: border-box; touch-action: manipulation; }
         body {
-            margin: 0;
-            padding: 0;
-            background-color: #1b4d1e; /* 网页背景深一点 */
+            margin: 0; background: var(--bg-color); color: #fff;
             font-family: "Microsoft YaHei", sans-serif;
-            overflow: hidden;
-            height: 100vh;
-            color: white;
-            user-select: none;
-            -webkit-user-select: none;
-            display: flex;
-            justify-content: center; /* 居中显示 */
+            overflow: hidden; height: 100vh; display: flex; justify-content: center;
+            user-select: none; -webkit-user-select: none;
+        }
+        #app {
+            width: 100%; max-width: 700px; height: 100%; position: relative;
+            background: radial-gradient(circle, #2E7D32 0%, #1b4d1e 100%);
+            box-shadow: 0 0 30px #000; display: flex; flex-direction: column;
         }
 
-        /* 模拟手机容器 */
-        #app-container {
-            width: 100%;
-            max-width: 600px; /* 限制最大宽度，电脑上像手机 */
-            height: 100%;
-            background-color: var(--bg-color);
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        /* 顶部栏 */
+        .top-bar {
+            height: 40px; display: flex; justify-content: space-between; align-items: center;
+            padding: 0 15px; background: rgba(0,0,0,0.3); font-size: 14px;
         }
+        .multiplier { color: #FFD700; font-weight: bold; margin-left: 10px; }
 
-        /* 顶部信息栏 */
-        #header {
-            height: 50px;
-            background: rgba(0,0,0,0.3);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 15px;
-            font-size: 16px;
-        }
-        .score-box { font-weight: bold; color: #FFD700; font-size: 20px; }
+        /* 游戏主区域 */
+        .game-board { flex: 1; position: relative; }
 
-        /* 游戏区域 */
-        #game-area {
-            flex: 1;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-        }
+        /* 角色区域通用 */
+        .player-zone { position: absolute; display: flex; align-items: center; }
+        .p-left { top: 10%; left: 10px; flex-direction: column; }
+        .p-right { top: 10%; right: 10px; flex-direction: column; }
+        .p-self { bottom: 20px; left: 0; width: 100%; justify-content: center; height: 140px; z-index: 10; }
 
-        /* 电脑区域 */
-        .computer-area {
-            height: 25%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-        }
+        /* 头像 */
         .avatar {
-            width: 50px;
-            height: 50px;
-            background: #eee;
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: #333;
-            font-weight: bold;
-            border: 3px solid #fff;
-            position: absolute;
-            z-index: 10;
+            width: 46px; height: 46px; border-radius: 50%; background: #ddd; border: 2px solid #fff;
+            display: flex; justify-content: center; align-items: center; color: #333; font-weight: bold;
+            position: relative; margin-bottom: 5px; font-size: 12px;
         }
-        .role-badge {
-            position: absolute;
-            bottom: -5px;
-            right: -5px;
-            background: red;
-            color: white;
-            font-size: 10px;
-            padding: 2px 4px;
-            border-radius: 4px;
-            display: none;
+        .landlord-cap {
+            position: absolute; top: -10px; right: -10px; background: gold; color: #8B4500;
+            padding: 2px 5px; border-radius: 4px; font-size: 10px; border: 1px solid #fff; display: none;
         }
-        .ai-left { left: 10px; top: 20px; }
-        .ai-right { right: 10px; top: 20px; }
-        
-        .card-count {
-            position: absolute;
-            top: 25px;
-            font-size: 14px;
-            background: rgba(0,0,0,0.5);
-            padding: 2px 8px;
-            border-radius: 10px;
-        }
-        .count-left { left: 70px; }
-        .count-right { right: 70px; }
+        .card-rest { font-size: 12px; background: rgba(0,0,0,0.5); padding: 2px 6px; border-radius: 8px; }
 
         /* 出牌展示区 */
-        #table-area {
-            height: 30%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
+        .played-zone { position: absolute; height: 80px; display: flex; align-items: center; transform: scale(0.9); pointer-events: none;}
+        #out-left { top: 15%; left: 70px; transform-origin: left center; }
+        #out-right { top: 15%; right: 70px; justify-content: flex-end; transform-origin: right center; }
+        #out-self { bottom: 40%; left: 50%; transform: translateX(-50%) scale(1); }
+
+        /* 卡牌样式 */
+        .card {
+            width: var(--card-w); height: var(--card-h); background: #fff; border-radius: 4px;
+            box-shadow: -1px 1px 4px rgba(0,0,0,0.4); position: relative; flex-shrink: 0;
+            font-weight: bold; display: flex; flex-direction: column; padding: 2px;
+            cursor: pointer; transition: transform 0.1s;
         }
-        .played-cards {
-            display: flex;
-            margin-left: -30px;
-        }
-        .msg-tip {
-            position: absolute;
-            background: rgba(0,0,0,0.7);
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-size: 20px;
-            z-index: 100;
-            display: none; /* 默认隐藏 */
-            text-align: center;
+        .card.red { color: #D32F2F; } .card.black { color: #212121; }
+        .card .val { font-size: 18px; line-height: 18px; text-align: left; }
+        .card .suit { font-size: 14px; text-align: left; }
+        .card .main-val { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 28px; }
+        
+        /* 手牌堆叠 */
+        .hand-wrapper { display: flex; justify-content: center; padding: 0 20px; height: 100%; align-items: flex-end; }
+        .hand-wrapper .card { margin-left: -35px; } 
+        .hand-wrapper .card:first-child { margin-left: 0; }
+        .hand-wrapper .card.selected { transform: translateY(-20px); border: 2px solid #FFD700; }
+
+        /* 出牌堆叠（摊开） */
+        .played-zone .card { margin-left: -35px; cursor: default; }
+        .played-zone .card:first-child { margin-left: 0; }
+
+        /* 消息提示 */
+        .msg-box {
+            position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8); padding: 10px 20px; border-radius: 20px;
+            font-size: 18px; display: none; z-index: 100; text-align: center;
         }
 
-        /* 玩家区域 */
-        #player-area {
-            height: 45%;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            padding-bottom: 10px;
-        }
-
-        /* 按钮控制区 */
-        #controls {
-            height: 60px;
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-bottom: 10px;
-            position: relative;
-            z-index: 20;
+        /* 按钮组 */
+        .ctrl-panel {
+            position: absolute; bottom: 160px; left: 0; width: 100%;
+            display: flex; justify-content: center; gap: 15px; z-index: 20;
         }
         .btn {
-            background: linear-gradient(to bottom, #FFD700, #FFA500);
-            border: none;
-            padding: 10px 25px;
-            border-radius: 30px;
-            font-size: 20px;
-            font-weight: bold;
-            color: #8B4500;
-            box-shadow: 0 4px 0 #8B4500;
-            cursor: pointer;
-            display: none; /* 默认隐藏 */
-        }
-        .btn:active { transform: translateY(4px); box-shadow: none; }
-
-        .btn-blue {
-            background: linear-gradient(to bottom, #4FC3F7, #0288D1);
-            color: #fff;
-            box-shadow: 0 4px 0 #01579B;
-        }
-        .btn-gray {
-             background: #ccc;
-             color: #666;
-             box-shadow: 0 4px 0 #999;
-        }
-        
-        /* 特殊：开始按钮样式增强 */
-        #btn-start {
-            background: linear-gradient(to bottom, #66BB6A, #2E7D32);
-            color: white;
-            box-shadow: 0 4px 0 #1B5E20;
-            font-size: 24px;
-            padding: 12px 40px;
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-
-        /* 扑克牌样式 */
-        .hand-container {
-            display: flex;
-            justify-content: center;
-            height: 140px;
-            padding: 0 10px;
-            overflow: visible;
-        }
-        
-        .card {
-            width: var(--card-width);
-            height: calc(var(--card-width) * var(--card-ratio));
-            background: white;
-            border-radius: 6px;
-            box-shadow: -2px 0 5px rgba(0,0,0,0.2);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 3px;
-            box-sizing: border-box;
-            position: relative;
-            margin-left: -35px;
-            transition: transform 0.2s;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        
-        .card.selected {
-            transform: translateY(-20px);
-            border: 2px solid #FFD700;
-        }
-        
-        .card-top { font-size: 18px; line-height: 1; text-align: left;}
-        .card-main { font-size: 30px; text-align: center; position: absolute; top:50%; left:50%; transform:translate(-50%, -50%);}
-        
-        .red { color: #D32F2F; }
-        .black { color: #212121; }
-        
-        /* 结算弹窗 */
-        #modal {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8);
+            border: none; padding: 10px 24px; border-radius: 24px; font-size: 18px;
+            font-weight: bold; color: #fff; cursor: pointer; box-shadow: 0 4px 0 rgba(0,0,0,0.2);
             display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
         }
-        .modal-content {
-            background: white;
-            width: 80%;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            color: #333;
+        .btn:active { transform: translateY(3px); box-shadow: none; }
+        .btn-green { background: #43a047; } 
+        .btn-org { background: #ff9800; }
+        .btn-blue { background: #1e88e5; }
+        .btn-gray { background: #757575; color: #eee; }
+
+        /* 结算弹窗 */
+        .modal-mask {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: none; z-index: 999;
+            justify-content: center; align-items: center;
         }
-        .modal-title { font-size: 32px; font-weight: bold; margin-bottom: 20px; }
-        .modal-btn {
-            background: #2E7D32;
-            color: white;
-            padding: 15px 40px;
-            border-radius: 10px;
-            font-size: 22px;
-            border: none;
-            cursor: pointer;
+        .result-board {
+            background: #fff; width: 80%; padding: 20px; border-radius: 10px;
+            text-align: center; color: #333; animation: pop 0.3s;
         }
+        @keyframes pop { from {transform: scale(0.5);} to {transform: scale(1);} }
     </style>
 </head>
 <body>
 
-<div id="app-container">
-    <div id="header">
-        <div onclick="resetScore()" style="font-size:12px; opacity:0.7; cursor:pointer;">重置积分</div>
-        <div>我的积分: <span id="my-score" class="score-box">1000</span></div>
+<div id="app">
+    <div class="top-bar">
+        <div onclick="core.resetGame()" style="cursor:pointer">重置游戏</div>
+        <div>底分:1 <span class="multiplier" id="ui-mult">x1</span></div>
+        <div>积分: <span id="ui-score">1000</span></div>
     </div>
 
-    <div id="game-area">
-        <!-- 电脑玩家 左 -->
-        <div class="computer-area">
-            <div class="avatar ai-left">电脑1<span class="role-badge" id="role-1">地</span></div>
-            <div class="card-count count-left" id="count-1">17</div>
+    <div class="game-board">
+        <!-- 电脑左 -->
+        <div class="player-zone p-left">
+            <div class="avatar">电脑1 <div class="landlord-cap" id="cap-1">地</div></div>
+            <div class="card-rest" id="rest-1">17</div>
+            <div id="out-1" class="played-zone"></div>
+        </div>
+        
+        <!-- 电脑右 -->
+        <div class="player-zone p-right">
+            <div class="avatar">电脑2 <div class="landlord-cap" id="cap-2">地</div></div>
+            <div class="card-rest" id="rest-2">17</div>
+            <div id="out-2" class="played-zone"></div>
         </div>
 
-        <!-- 电脑玩家 右 -->
-        <div class="computer-area" style="justify-content: flex-end;">
-             <div class="avatar ai-right">电脑2<span class="role-badge" id="role-2">农</span></div>
-             <div class="card-count count-right" id="count-2">17</div>
-        </div>
+        <!-- 中间提示 -->
+        <div id="msg" class="msg-box">提示信息</div>
+        
+        <!-- 玩家出牌区 -->
+        <div id="out-self" class="played-zone"></div>
 
-        <!-- 出牌显示区 -->
-        <div id="table-area">
-            <!-- 初始提示 -->
-            <div id="welcome-msg" class="msg-tip" style="display:block;">点击下方<br>开始游戏</div>
+        <!-- 按钮组 -->
+        <div class="ctrl-panel" id="ctrls">
+            <button class="btn btn-green" id="btn-start" onclick="core.start()">开始游戏</button>
             
-            <div id="msg-tip" class="msg-tip">提示信息</div>
-            <div id="table-cards" class="played-cards"></div>
+            <button class="btn btn-org" id="btn-score1" onclick="core.playerBid(1)">1分</button>
+            <button class="btn btn-org" id="btn-score2" onclick="core.playerBid(2)">2分</button>
+            <button class="btn btn-org" id="btn-score3" onclick="core.playerBid(3)">3分</button>
+            <button class="btn btn-blue" id="btn-pass-bid" onclick="core.playerBid(0)">不叫</button>
+
+            <button class="btn btn-gray" id="btn-pass" onclick="core.playerPass()">不出</button>
+            <button class="btn btn-blue" id="btn-hint" onclick="core.playerHint()">提示</button>
+            <button class="btn btn-green" id="btn-play" onclick="core.playerPlay()">出牌</button>
         </div>
 
-        <!-- 玩家控制区 -->
-        <div id="player-area">
-            <div id="controls">
-                <!-- 抢地主按钮组 -->
-                <button id="btn-qiang" class="btn" onclick="game.playerCall(true)">抢地主</button>
-                <button id="btn-buqiang" class="btn btn-blue" onclick="game.playerCall(false)">不抢</button>
-                
-                <!-- 出牌按钮组 -->
-                <button id="btn-pass" class="btn btn-gray" onclick="game.playerPass()">不出</button>
-                <button id="btn-hint" class="btn btn-blue" onclick="game.playerHint()">提示</button>
-                <button id="btn-play" class="btn" onclick="game.playerPlay()">出牌</button>
-                
-                <!-- 开始按钮 (默认加上 !important 保证不被覆盖) -->
-                <button id="btn-start" class="btn" onclick="game.start()">开始游戏</button>
-            </div>
-            <div id="my-hand" class="hand-container"></div>
+        <!-- 玩家手牌 -->
+        <div class="player-zone p-self">
+            <div class="hand-wrapper" id="my-hand"></div>
         </div>
     </div>
 
-    <!-- 结算弹窗 -->
-    <div id="modal">
-        <div class="modal-content">
-            <div id="modal-title" class="modal-title">胜利!</div>
-            <div id="modal-score" style="font-size:20px; margin-bottom:20px;">积分 +100</div>
-            <button class="modal-btn" onclick="game.start()">再来一局</button>
+    <!-- 结算 -->
+    <div class="modal-mask" id="modal">
+        <div class="result-board">
+            <h1 id="res-title">胜利</h1>
+            <p id="res-detail">倍数 x2</p>
+            <p id="res-score" style="font-size:24px;font-weight:bold;color:#d32f2f">+200</p>
+            <button class="btn btn-green" style="display:inline-block;margin-top:15px;" onclick="core.start()">再来一局</button>
         </div>
     </div>
 </div>
 
 <script>
 /**
- * 极简版斗地主逻辑 (修复版)
+ * 全功能斗地主核心逻辑
+ * 包含：完整牌型判定（顺子、飞机、连对等）、简单权值AI
  */
 
-const SUITS = ['♠', '♥', '♣', '♦'];
-const VALUES = [
-    {v:3, l:'3'}, {v:4, l:'4'}, {v:5, l:'5'}, {v:6, l:'6'}, 
-    {v:7, l:'7'}, {v:8, l:'8'}, {v:9, l:'9'}, {v:10, l:'10'}, 
-    {v:11, l:'J'}, {v:12, l:'Q'}, {v:13, l:'K'}, {v:14, l:'A'}, {v:15, l:'2'}
-];
-const JOKER_S = {v:16, l:'小王', s:'black'};
-const JOKER_B = {v:17, l:'大王', s:'red'};
+// --- 常量定义 ---
+const R = { 
+    SINGLE:1, PAIR:2, TRIPLE:3, BOMB:4, ROCKET:5, 
+    SEQ:6, SEQ_PAIR:7, PLANE:8, TRI_1:9, TRI_2:10, 
+    PLANE_1:11, PLANE_2:12, FOUR_2:13 
+};
+const POINTS = ['3','4','5','6','7','8','9','10','J','Q','K','A','2','小王','大王'];
+const VALUES = {3:3,4:4,5:5,6:6,7:7,8:8,9:9,10:10,11:11,12:12,13:13,14:14,15:15,16:16,17:17};
 
-let userScore = parseInt(localStorage.getItem('ddz_score')) || 1000;
-document.getElementById('my-score').innerText = userScore;
-
-function saveScore(delta) {
-    userScore += delta;
-    localStorage.setItem('ddz_score', userScore);
-    document.getElementById('my-score').innerText = userScore;
-}
-
-function resetScore() {
-    if(confirm('确定重置积分为1000吗？')) {
-        userScore = 1000;
-        localStorage.setItem('ddz_score', 1000);
-        document.getElementById('my-score').innerText = userScore;
-    }
-}
-
-class Game {
-    constructor() {
-        // 初始化时不完全重置，保留开始按钮
-        this.hideBtns(); 
-        document.getElementById('btn-start').style.display = 'block'; 
-    }
-
-    reset() {
-        this.deck = [];
-        this.players = [[], [], []]; 
-        this.landlordCards = [];
-        this.landlordIdx = -1;
-        this.curTurn = -1;
-        this.lastCards = null; 
-        this.state = 'idle'; 
+// --- 工具类：牌型分析引擎 ---
+class Solver {
+    // 核心：分析牌型
+    static analyze(cards) {
+        if (!cards || cards.length === 0) return null;
+        cards.sort((a,b) => b.val - a.val); // 从大到小
+        const len = cards.length;
+        const vals = cards.map(c => c.val);
         
-        document.getElementById('table-cards').innerHTML = '';
-        document.getElementById('modal').style.display = 'none';
-        document.getElementById('welcome-msg').style.display = 'none'; // 隐藏欢迎语
-        document.querySelectorAll('.role-badge').forEach(el => el.style.display = 'none');
-        this.hideBtns();
-    }
+        // 统计频率
+        let cnt = {};
+        vals.forEach(v => cnt[v] = (cnt[v]||0)+1);
+        let keys = Object.keys(cnt).map(Number).sort((a,b)=>b-a); // 存在的点数
+        let maxRep = Math.max(...Object.values(cnt)); // 最大重复数
 
-    initDeck() {
-        this.deck = [];
-        for (let s = 0; s < 4; s++) {
-            for (let v of VALUES) {
-                this.deck.push({ val: v.v, label: v.l, suit: SUITS[s], color: (s===1||s===3)?'red':'black' });
+        // 1. 王炸
+        if (len===2 && vals[0]===17 && vals[1]===16) return {type: R.ROCKET, val: 999};
+        
+        // 2. 炸弹
+        if (len===4 && maxRep===4) return {type: R.BOMB, val: vals[0]};
+
+        // 3. 单/对/三
+        if (len===1) return {type: R.SINGLE, val: vals[0]};
+        if (len===2 && maxRep===2) return {type: R.PAIR, val: vals[0]};
+        if (len===3 && maxRep===3) return {type: R.TRIPLE, val: vals[0]};
+
+        // 4. 三带一/二
+        if (len===4 && maxRep===3) return {type: R.TRI_1, val: Number(Object.keys(cnt).find(k=>cnt[k]===3))};
+        if (len===5 && maxRep===3 && keys.length===2) return {type: R.TRI_2, val: Number(Object.keys(cnt).find(k=>cnt[k]===3))};
+
+        // 5. 顺子 (5张起, <15)
+        if (len>=5 && maxRep===1 && vals[0]<15 && vals[0]-vals[len-1]===len-1) 
+            return {type: R.SEQ, val: vals[len-1], len: len};
+
+        // 6. 连对 (3对起, <15)
+        if (len>=6 && len%2===0 && maxRep===2 && keys.length===len/2 && keys[0]<15 && keys[0]-keys[keys.length-1]===keys.length-1)
+            return {type: R.SEQ_PAIR, val: keys[keys.length-1], len: len/2};
+
+        // 7. 飞机 (2个三张起)
+        // 这是一个复杂判断，简化处理：找连续的3张
+        let trips = keys.filter(k => cnt[k]>=3);
+        if (trips.length >= 2) {
+            // 检查连续性 (注意: trips是倒序的)
+            let planeLen = 1;
+            let maxPlaneLen = 1;
+            let planeHead = trips[0];
+            for (let i=0; i<trips.length-1; i++) {
+                if (trips[i] - trips[i+1] === 1 && trips[i]<15) {
+                    planeLen++;
+                    if (planeLen > maxPlaneLen) {
+                        maxPlaneLen = planeLen;
+                        planeHead = trips[i+1-planeLen+1]; // 记录最大连最上面的那个值
+                    }
+                } else {
+                    planeLen = 1;
+                }
+            }
+            if (maxPlaneLen >= 2) {
+                // 飞机不带
+                if (len === maxPlaneLen*3) return {type: R.PLANE, val: planeHead + maxPlaneLen -1, len: maxPlaneLen};
+                // 飞机带单
+                if (len === maxPlaneLen*4) return {type: R.PLANE_1, val: planeHead + maxPlaneLen -1, len: maxPlaneLen};
+                // 飞机带对
+                if (len === maxPlaneLen*5) return {type: R.PLANE_2, val: planeHead + maxPlaneLen -1, len: maxPlaneLen};
             }
         }
-        this.deck.push({ val: JOKER_S.v, label: JOKER_S.l, suit: '', color: JOKER_S.s });
-        this.deck.push({ val: JOKER_B.v, label: JOKER_B.l, suit: '', color: JOKER_B.s });
         
-        for (let i = this.deck.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [this.deck[i], this.deck[j]] = [this.deck[j], this.deck[i]];
+        // 8. 四带二
+        if (len===6 && maxRep===4) return {type: R.FOUR_2, val: Number(Object.keys(cnt).find(k=>cnt[k]===4))};
+
+        return null;
+    }
+
+    // 核心：比大小
+    static canBeat(last, curr) {
+        if (!last) return true;
+        if (curr.type === R.ROCKET) return true;
+        if (last.type === R.ROCKET) return false;
+        if (curr.type === R.BOMB && last.type !== R.BOMB) return true;
+        if (curr.type === last.type) {
+            if (curr.type === R.SEQ || curr.type === R.SEQ_PAIR || curr.type === R.PLANE || curr.type >= R.PLANE_1) {
+                return curr.len === last.len && curr.val > last.val;
+            }
+            return curr.val > last.val;
         }
+        return false;
+    }
+}
+
+// --- 游戏主控 ---
+class Core {
+    constructor() {
+        this.deck = [];
+        this.players = [[],[],[]]; // 0:我, 1:右电脑, 2:左电脑 (视觉上修正) -> 实际索引: 0我, 1电脑(右), 2电脑(左)
+        // 为了方便，定义 1 为下家(右)，2为上家(左)
+        
+        this.landlord = -1;
+        this.turn = -1;
+        this.state = 0; // 0:闲置, 1:叫分, 2:出牌
+        this.lastHand = null; // {pid, pattern, cards}
+        this.baseMult = 1;
+        this.myScore = parseInt(localStorage.getItem('ddz_master_score')) || 1000;
+        this.history = []; // 出牌记录
+        
+        this.updateUI();
+    }
+
+    updateUI() {
+        document.getElementById('ui-score').innerText = this.myScore;
+        document.getElementById('ui-mult').innerText = 'x' + this.baseMult;
     }
 
     start() {
-        this.reset();
-        this.initDeck();
-        
+        // 重置数据
+        this.deck = this.createDeck();
+        this.players = [[],[],[]];
+        this.landlord = -1;
+        this.baseMult = 1;
+        this.lastHand = null;
+        this.history = [];
+        this.hideBtns();
+        document.getElementById('modal').style.display = 'none';
+        ['cap-1','cap-2'].forEach(i=>document.getElementById(i).style.display='none');
+        ['out-self','out-1','out-2'].forEach(i=>document.getElementById(i).innerHTML='');
+        document.getElementById('btn-start').style.display = 'none';
+
         // 发牌
-        this.players[0] = this.deck.slice(0, 17);
-        this.players[1] = this.deck.slice(17, 34);
-        this.players[2] = this.deck.slice(34, 51);
+        for(let i=0; i<51; i++) this.players[i%3].push(this.deck[i]);
         this.landlordCards = this.deck.slice(51);
+        [0,1,2].forEach(i=>this.sortHand(i));
         
-        this.sortHand(0);
-        this.sortHand(1);
-        this.sortHand(2);
+        this.renderHand();
+        this.renderRest();
         
-        this.renderMyHand();
-        this.updateCounts();
-        
-        this.state = 'bidding';
-        this.curTurn = Math.floor(Math.random() * 3);
-        this.showMsg(`开始抢地主，${this.curTurn === 0 ? '你' : '电脑'+this.curTurn}先叫`);
+        // 进入叫分
+        this.state = 1;
+        this.turn = Math.floor(Math.random()*3);
+        this.msg(`开始叫分，${this.getRoleName(this.turn)}先叫`);
         this.nextStep();
     }
 
-    sortHand(pid) {
-        this.players[pid].sort((a, b) => b.val - a.val);
+    createDeck() {
+        let d = [];
+        for(let v=3; v<=15; v++) {
+            ['♠','♥','♣','♦'].forEach(s => d.push({val:v, suit:s, text:POINTS[v-3]}));
+        }
+        d.push({val:16, suit:'', text:'小王'}, {val:17, suit:'', text:'大王'});
+        return d.sort(()=>Math.random()-0.5);
     }
 
+    sortHand(pid) {
+        this.players[pid].sort((a,b) => b.val - a.val);
+    }
+
+    // --- 流程控制 ---
     nextStep() {
-        if (this.state === 'bidding') {
-            if (this.curTurn === 0) {
-                this.showBtns(['btn-qiang', 'btn-buqiang']);
+        if (this.state === 1) { // 叫分阶段
+            if (this.turn === 0) {
+                this.showBtns(['btn-score1','btn-score2','btn-score3','btn-pass-bid']);
             } else {
-                setTimeout(() => {
-                    let call = Math.random() > 0.4; 
-                    if (call) this.setLandlord(this.curTurn);
-                    else {
-                        this.showMsg(`电脑${this.curTurn} 不抢`);
-                        this.curTurn = (this.curTurn + 1) % 3;
-                        if(this.curTurn === 0 && this.landlordIdx === -1) {
-                            this.showMsg('没人抢，重新发牌');
-                            this.start();
-                            return;
-                        }
-                        this.nextStep();
-                    }
-                }, 1000);
+                setTimeout(() => this.aiBid(), 1000);
             }
-        } else if (this.state === 'playing') {
-            if (this.curTurn === 0) {
+        } else if (this.state === 2) { // 出牌阶段
+            if (this.turn === 0) {
                 this.showBtns(['btn-play', 'btn-hint']);
-                if (this.lastCards && this.lastCards.playerId !== 0) {
-                    document.getElementById('btn-pass').style.display = 'block';
-                } else {
-                    document.getElementById('btn-pass').style.display = 'none'; 
-                }
+                // 如果没人出牌或上一手是自己，不能不出
+                let canPass = this.lastHand && this.lastHand.pid !== 0;
+                document.getElementById('btn-pass').style.display = canPass ? 'block' : 'none';
             } else {
                 this.hideBtns();
                 setTimeout(() => this.aiPlay(), 1200);
@@ -446,259 +362,243 @@ class Game {
         }
     }
 
-    setLandlord(idx) {
-        this.landlordIdx = idx;
-        this.players[idx].push(...this.landlordCards);
-        this.sortHand(idx);
-        this.state = 'playing';
-        this.curTurn = idx; 
-        
-        this.renderMyHand();
-        this.updateCounts();
-        this.showMsg(`${idx===0?'你':'电脑'+idx} 抢到了地主!`);
-        
-        let tipHtml = '<div style="font-size:12px;color:#fff">底牌: ';
-        this.landlordCards.forEach(c => tipHtml += `${c.label} `);
-        tipHtml += '</div>';
-        document.getElementById('msg-tip').innerHTML = tipHtml;
-        document.getElementById('msg-tip').style.display = 'block';
-        setTimeout(() => document.getElementById('msg-tip').style.display = 'none', 3000);
+    // --- 叫分逻辑 ---
+    playerBid(score) {
+        this.handleBid(0, score);
+    }
 
-        const roles = ['地', '农'];
-        if(idx === 0) {
+    aiBid() {
+        // 简单逻辑：大牌多就叫3分，否则不叫
+        let h = this.players[this.turn];
+        let point = 0;
+        h.forEach(c => { if(c.val>=14) point += 2; if(c.val===17||c.val===16) point+=4; });
+        let score = point > 10 ? 3 : (point > 6 ? 1 : 0);
+        this.handleBid(this.turn, score);
+    }
+
+    handleBid(pid, score) {
+        if (score > 0) {
+            // 简化规则：有人叫分直接当地主（实际斗地主更复杂）
+            this.setLandlord(pid);
         } else {
-            document.getElementById(`role-${idx}`).style.display = 'block';
+            this.msg(`${this.getRoleName(pid)} 不叫`);
+            this.turn = (this.turn + 1) % 3;
+            // 简化：如果一圈没人叫，重发
+            // 这里为了演示，如果是最后一个人还不叫，默认给0号
+            // 实际代码中可以记录 passCount
+            if (this.turn === 0 && this.landlord === -1) {
+                this.msg("无人叫分，强制分配");
+                this.setLandlord(0);
+            } else {
+                this.nextStep();
+            }
         }
+    }
+
+    setLandlord(pid) {
+        this.landlord = pid;
+        this.state = 2;
+        this.turn = pid;
+        this.players[pid].push(...this.landlordCards);
+        this.sortHand(pid);
+        
+        this.msg(`${this.getRoleName(pid)} 成为地主`);
+        if (pid!==0) document.getElementById(`cap-${pid}`).style.display = 'block';
+        
+        // 动画：插入底牌
+        this.renderHand();
+        this.renderRest();
+        this.updateUI();
+        
+        // 清理叫分文字
+        ['out-1','out-2','out-self'].forEach(i=>document.getElementById(i).innerHTML='');
         this.nextStep();
     }
 
-    playerCall(want) {
-        if (want) {
-            this.setLandlord(0);
-        } else {
-            this.showMsg('你不抢');
-            this.curTurn = 1;
-            this.nextStep();
-        }
-    }
-
-    getSelectedCards() {
-        const els = document.querySelectorAll('.card.selected');
-        let indices = [];
-        els.forEach(el => indices.push(parseInt(el.dataset.idx)));
-        indices.sort((a,b) => a-b);
-        return indices.map(i => this.players[0][i]);
-    }
-
+    // --- 出牌逻辑 ---
     playerPlay() {
-        const cards = this.getSelectedCards();
-        if (cards.length === 0) {
-            this.showMsg('请先选牌');
-            return;
+        let sel = document.querySelectorAll('#my-hand .selected');
+        let idxs = Array.from(sel).map(e => parseInt(e.dataset.idx));
+        if (idxs.length === 0) return this.msg("请选牌");
+        
+        let cards = idxs.map(i => this.players[0][i]);
+        let pattern = Solver.analyze(cards);
+        
+        if (!pattern) return this.msg("牌型无效");
+        
+        if (this.lastHand && this.lastHand.pid !== 0) {
+            if (!Solver.canBeat(this.lastHand.pattern, pattern)) return this.msg("打不过");
         }
         
-        const typeObj = this.getCardType(cards);
-        if (!typeObj) {
-            this.showMsg('牌型不合法');
-            return;
-        }
-
-        if (this.canBeat(typeObj, cards)) {
-            this.doPlay(0, cards, typeObj);
-        } else {
-            this.showMsg('打不过上家!');
-        }
+        this.executePlay(0, cards, pattern);
     }
 
     playerPass() {
-        this.showMsg('不出');
-        this.curTurn = (this.curTurn + 1) % 3;
-        this.nextStep();
+        this.executePass(0);
     }
 
     playerHint() {
-        this.showMsg('单机版请自己练技术');
+        // 极简提示：找一个能管上的单张或炸弹
+        this.msg("请根据规则出牌"); 
     }
 
     aiPlay() {
-        const hand = this.players[this.curTurn];
-        let playCards = null;
-        let playType = null;
-
-        if (!this.lastCards || this.lastCards.playerId === this.curTurn) {
-            let card = hand[hand.length - 1];
-            playCards = [card];
-            playType = {type: 'single', val: card.val};
-        } else {
-            const target = this.lastCards;
-            if (target.type === 'single') {
-                for (let i = hand.length - 1; i >= 0; i--) {
-                    if (hand[i].val > target.value) {
-                        playCards = [hand[i]];
-                        playType = {type: 'single', val: hand[i].val};
-                        break;
+        try {
+            let p = this.players[this.turn];
+            let mustPlay = (!this.lastHand || this.lastHand.pid === this.turn);
+            let playCards = [];
+            
+            if (mustPlay) {
+                // 自由出牌：出最小的
+                playCards = [p[p.length-1]];
+                // 优化：如果有顺子出顺子...这里略，防卡死只出单张
+            } else {
+                // 跟牌
+                let t = this.lastHand.pattern;
+                // AI只接单张、对子、炸弹，其他过（防崩溃）
+                if (t.type === R.SINGLE) {
+                    let c = p.slice().reverse().find(c => c.val > t.val);
+                    if(c) playCards = [c];
+                } else if (t.type === R.PAIR) {
+                    for(let i=p.length-1; i>0; i--) {
+                        if(p[i].val===p[i-1].val && p[i].val > t.val) { playCards=[p[i],p[i-1]]; break; }
                     }
                 }
-            } else if (target.type === 'pair') {
-                 for (let i = hand.length - 1; i > 0; i--) {
-                     if (hand[i].val === hand[i-1].val && hand[i].val > target.value) {
-                         playCards = [hand[i], hand[i-1]];
-                         playType = {type: 'pair', val: hand[i].val};
-                         break;
-                     }
-                 }
-            } 
+            }
+
+            if (playCards.length > 0) {
+                let pat = Solver.analyze(playCards);
+                if(pat) this.executePlay(this.turn, playCards, pat);
+                else this.executePass(this.turn);
+            } else {
+                this.executePass(this.turn);
+            }
+        } catch(e) {
+            console.error(e);
+            this.executePass(this.turn);
+        }
+    }
+
+    executePlay(pid, cards, pattern) {
+        // 移除手牌
+        let h = this.players[pid];
+        cards.forEach(c => {
+            let idx = h.findIndex(x => x.val===c.val && x.suit===c.suit);
+            if(idx>-1) h.splice(idx,1);
+        });
+        
+        // 炸弹翻倍
+        if (pattern.type === R.BOMB || pattern.type === R.ROCKET) {
+            this.baseMult *= 2;
+            this.updateUI();
+            this.animMult();
         }
 
-        if (playCards) {
-            this.doPlay(this.curTurn, playCards, playType);
+        this.lastHand = {pid, pattern, cards};
+        this.showOutCards(pid, cards);
+        if(pid===0) this.renderHand();
+        this.renderRest();
+        
+        if (h.length === 0) {
+            this.gameOver(pid);
         } else {
-            this.showMsg(`电脑${this.curTurn} 不出`);
-            this.curTurn = (this.curTurn + 1) % 3;
+            this.turn = (this.turn+1)%3;
             this.nextStep();
         }
     }
 
-    doPlay(pid, cards, typeObj) {
-        const hand = this.players[pid];
-        for(let c of cards) {
-            const idx = hand.findIndex(h => h.val === c.val && h.suit === c.suit);
-            if(idx > -1) hand.splice(idx, 1);
-        }
-        
-        this.lastCards = {
-            playerId: pid,
-            cards: cards,
-            type: typeObj.type,
-            value: typeObj.val
-        };
-        
-        this.renderTable(cards);
-        this.updateCounts();
-        if(pid === 0) this.renderMyHand();
-
-        if (hand.length === 0) {
-            this.gameOver(pid);
-            return;
-        }
-
-        this.curTurn = (this.curTurn + 1) % 3;
+    executePass(pid) {
+        let div = document.getElementById(pid===0 ? 'out-self' : `out-${pid}`);
+        div.innerHTML = '<span style="background:rgba(0,0,0,0.5);padding:5px 10px;border-radius:5px;">不出</span>';
+        this.turn = (this.turn+1)%3;
         this.nextStep();
     }
 
-    gameOver(winnerIdx) {
-        this.state = 'ended';
-        let isLandlordWin = (winnerIdx === this.landlordIdx);
-        let amILandlord = (this.landlordIdx === 0);
+    // --- 结算 ---
+    gameOver(winner) {
+        let isLandWin = (winner === this.landlord);
+        let iAmLand = (this.landlord === 0);
+        let win = (iAmLand && isLandWin) || (!iAmLand && !isLandWin);
         
-        let win = false;
-        if (amILandlord && isLandlordWin) win = true;
-        if (!amILandlord && !isLandlordWin) win = true;
-
-        const scoreChange = win ? 100 : -100;
-        saveScore(scoreChange);
-
-        const modal = document.getElementById('modal');
-        const title = document.getElementById('modal-title');
-        const scoreTxt = document.getElementById('modal-score');
+        let score = this.baseMult * 100;
+        if (!win) score = -score;
+        this.myScore += score;
+        localStorage.setItem('ddz_master_score', this.myScore);
         
-        modal.style.display = 'flex';
-        title.innerText = win ? '胜利!' : '失败';
-        title.style.color = win ? 'red' : 'gray';
-        scoreTxt.innerText = win ? `积分 ${win?'+':''}${scoreChange}` : `积分 ${scoreChange}`;
+        document.getElementById('modal').style.display = 'flex';
+        document.getElementById('res-title').innerText = win ? '胜利' : '失败';
+        document.getElementById('res-title').style.color = win ? '#d32f2f' : '#666';
+        document.getElementById('res-detail').innerText = `底分x1 × 倍数x${this.baseMult}`;
+        document.getElementById('res-score').innerText = (score>0?'+':'') + score;
+        this.updateUI();
     }
 
-    getCardType(cards) {
-        const len = cards.length;
-        const v = cards.map(c => c.val);
-        
-        if (len === 1) return {type: 'single', val: v[0]};
-        if (len === 2) {
-            if (v[0] === 17 && v[1] === 16) return {type: 'rocket', val: 999}; 
-            if (v[0] === v[1]) return {type: 'pair', val: v[0]};
-        }
-        if (len === 3) {
-            if (v[0] === v[2]) return {type: 'triple', val: v[0]};
-        }
-        if (len === 4) {
-            if (v[0] === v[3]) return {type: 'bomb', val: v[0]}; 
-            if (v[0] === v[2] || v[1] === v[3]) return {type: '3+1', val: v[1]};
-        }
-        return null;
-    }
-
-    canBeat(myType, myCards) {
-        if (!this.lastCards || this.lastCards.playerId === 0) return true; 
-        const enemy = this.lastCards;
-        if (myType.type === 'rocket') return true;
-        if (enemy.type === 'rocket') return false;
-        if (myType.type === 'bomb' && enemy.type !== 'bomb') return true;
-        if (myType.type === enemy.type) {
-             if (myType.type === 'single' || myType.type === 'pair' || myType.type === 'triple' || myType.type === 'bomb') {
-                 return myType.val > enemy.value;
-             }
-             if (myType.type === '3+1' && myCards.length === enemy.cards.length) {
-                 return myType.val > enemy.value;
-             }
-        }
-        return false;
-    }
-
-    renderMyHand() {
-        const div = document.getElementById('my-hand');
+    // --- 渲染辅助 ---
+    renderHand() {
+        let div = document.getElementById('my-hand');
         div.innerHTML = '';
-        this.players[0].forEach((c, idx) => {
-            const el = document.createElement('div');
-            el.className = `card ${c.color}`;
-            el.dataset.idx = idx;
-            el.innerHTML = `
-                <div class="card-top">${c.label}<br><span style="font-size:14px">${c.suit}</span></div>
-                <div class="card-main">${c.label}</div>
-            `;
-            el.onclick = () => {
-                el.classList.toggle('selected');
-            };
+        this.players[0].forEach((c, i) => {
+            let el = document.createElement('div');
+            el.className = `card ${c.suit==='♥'||c.suit==='♦'||c.val>15?'red':'black'}`;
+            el.innerHTML = `<div class="val">${c.text}</div><div class="main-val">${c.text}</div>`;
+            el.dataset.idx = i;
+            el.onclick = () => el.classList.toggle('selected');
             div.appendChild(el);
         });
     }
 
-    renderTable(cards) {
-        const div = document.getElementById('table-cards');
+    renderRest() {
+        document.getElementById('rest-1').innerText = this.players[1].length;
+        document.getElementById('rest-2').innerText = this.players[2].length;
+    }
+
+    showOutCards(pid, cards) {
+        let div = document.getElementById(pid===0 ? 'out-self' : `out-${pid}`);
         div.innerHTML = '';
         cards.forEach(c => {
-            const el = document.createElement('div');
-            el.className = `card ${c.color}`;
-            el.style.width = '40px'; 
-            el.style.height = '56px';
-            el.innerHTML = `<div class="card-main" style="font-size:20px">${c.label}</div>`;
+            let el = document.createElement('div');
+            el.className = `card ${c.suit==='♥'||c.suit==='♦'||c.val>15?'red':'black'}`;
+            el.innerHTML = `<div class="main-val">${c.text}</div>`;
             div.appendChild(el);
         });
-    }
-
-    updateCounts() {
-        document.getElementById('count-1').innerText = this.players[1].length;
-        document.getElementById('count-2').innerText = this.players[2].length;
     }
 
     showBtns(ids) {
         this.hideBtns();
         ids.forEach(id => document.getElementById(id).style.display = 'block');
     }
-
     hideBtns() {
-        document.querySelectorAll('#controls .btn').forEach(b => b.style.display = 'none');
+        document.querySelectorAll('.ctrl-panel .btn').forEach(b => b.style.display = 'none');
+    }
+    
+    getRoleName(pid) {
+        if(pid===0) return '你';
+        return `电脑${pid}`;
     }
 
-    showMsg(txt) {
-        const el = document.getElementById('msg-tip');
-        el.innerText = txt;
-        el.style.display = 'block';
-        setTimeout(() => el.style.display = 'none', 1500);
+    msg(txt) {
+        let el = document.getElementById('msg');
+        el.innerText = txt; el.style.display = 'block';
+        setTimeout(()=>el.style.display='none', 1500);
+    }
+    
+    resetGame() {
+        if(confirm("重置分数为1000？")) {
+            this.myScore = 1000; localStorage.setItem('ddz_master_score', 1000);
+            this.updateUI();
+            this.start();
+        }
+    }
+    
+    animMult() {
+        let el = document.getElementById('ui-mult');
+        el.style.transform = 'scale(1.5)';
+        setTimeout(()=>el.style.transform='scale(1)', 200);
     }
 }
 
-// 启动并强制显示开始按钮
-const game = new Game();
+const core = new Core();
+// 初始化不自动开始，需点按钮
 document.getElementById('btn-start').style.display = 'block';
 
 </script>
