@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>单机斗地主（大字版）</title>
+    <style>
+        /* --- 样式部分：针对手机和老年人优化 --- */
+        :root {
+            --bg-color: #2E7D32; /* 护眼深绿 */
+            --card-ratio: 1.4;
+            --card-width: 60px;
+            --font-main: 18px;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            font-family: "Microsoft YaHei", sans-serif;
+            overflow: hidden; /* 禁止页面滚动 */
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            color: white;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* 顶部信息栏 */
+        #header {
+            height: 50px;
+            background: rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 15px;
+            font-size: 16px;
+        }
+        .score-box { font-weight: bold; color: #FFD700; font-size: 20px; }
+
+        /* 游戏区域 */
+        #game-area {
+            flex: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 电脑区域 */
+        .computer-area {
+            height: 25%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        .avatar {
+            width: 50px;
+            height: 50px;
+            background: #eee;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #333;
+            font-weight: bold;
+            border: 3px solid #fff;
+            position: absolute;
+            z-index: 10;
+        }
+        .role-badge {
+            position: absolute;
+            bottom: -5px;
+            right: -5px;
+            background: red;
+            color: white;
+            font-size: 10px;
+            padding: 2px 4px;
+            border-radius: 4px;
+            display: none; /* 默认隐藏，确定地主后显示 */
+        }
+        .ai-left { left: 10px; top: 20px; }
+        .ai-right { right: 10px; top: 20px; }
+        
+        .card-count {
+            position: absolute;
+            top: 25px;
+            font-size: 14px;
+            background: rgba(0,0,0,0.5);
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        .count-left { left: 70px; }
+        .count-right { right: 70px; }
+
+        /* 出牌展示区 (桌子中间) */
+        #table-area {
+            height: 30%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        .played-cards {
+            display: flex;
+            margin-left: -30px; /* 叠牌效果 */
+        }
+        .msg-tip {
+            position: absolute;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 20px;
+            z-index: 100;
+            display: none;
+        }
+
+        /* 玩家区域 */
+        #player-area {
+            height: 45%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding-bottom: 10px;
+        }
+
+        /* 按钮控制区 */
+        #controls {
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+        .btn {
+            background: linear-gradient(to bottom, #FFD700, #FFA500);
+            border: none;
+            padding: 10px 25px;
+            border-radius: 30px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #8B4500;
+            box-shadow: 0 4px 0 #8B4500;
+            active:translate(0, 4px); 
+            display: none; /* 默认隐藏 */
+        }
+        .btn-blue {
+            background: linear-gradient(to bottom, #4FC3F7, #0288D1);
+            color: #fff;
+            box-shadow: 0 4px 0 #01579B;
+        }
+        .btn-gray {
+             background: #ccc;
+             color: #666;
+             box-shadow: 0 4px 0 #999;
+        }
+
+        /* 扑克牌样式 */
+        .hand-container {
+            display: flex;
+            justify-content: center;
+            height: 140px;
+            padding: 0 10px;
+            overflow: visible;
+        }
+        
+        .card {
+            width: var(--card-width);
+            height: calc(var(--card-width) * var(--card-ratio));
+            background: white;
+            border-radius: 6px;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 3px;
+            box-sizing: border-box;
+            position: relative;
+            margin-left: -35px; /* 叠牌 */
+            transition: transform 0.2s;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .card.selected {
+            transform: translateY(-20px);
+            border: 2px solid #FFD700;
+        }
+        
+        .card-top { font-size: 18px; line-height: 1; text-align: left;}
+        .card-main { font-size: 30px; text-align: center; position: absolute; top:50%; left:50%; transform:translate(-50%, -50%);}
+        
+        .red { color: #D32F2F; }
+        .black { color: #212121; }
+        
+        /* 结算弹窗 */
+        #modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            width: 80%;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            color: #333;
+        }
+        .modal-title { font-size: 32px; font-weight: bold; margin-bottom: 20px; }
+        .modal-btn {
+            background: #2E7D32;
+            color: white;
+            padding: 15px 40px;
+            border-radius: 10px;
+            font-size: 22px;
+            border: none;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="header">
+    <div onclick="resetScore()" style="font-size:12px; opacity:0.7;">重置积分</div>
+    <div>我的积分: <span id="my-score" class="score-box">1000</span></div>
+</div>
+
+<div id="game-area">
+    <!-- 电脑玩家 左 -->
+    <div class="computer-area">
+        <div class="avatar ai-left">电脑1<span class="role-badge" id="role-1">地</span></div>
+        <div class="card-count count-left" id="count-1">17</div>
+    </div>
+
+    <!-- 电脑玩家 右 -->
+    <div class="computer-area" style="justify-content: flex-end;">
+         <div class="avatar ai-right">电脑2<span class="role-badge" id="role-2">农</span></div>
+         <div class="card-count count-right" id="count-2">17</div>
+    </div>
+
+    <!-- 出牌显示区 -->
+    <div id="table-area">
+        <div id="msg-tip" class="msg-tip">提示信息</div>
+        <div id="table-cards" class="played-cards"></div>
+    </div>
+
+    <!-- 玩家控制区 -->
+    <div id="player-area">
+        <div id="controls">
+            <!-- 抢地主按钮组 -->
+            <button id="btn-qiang" class="btn" onclick="game.playerCall(true)">抢地主</button>
+            <button id="btn-buqiang" class="btn btn-blue" onclick="game.playerCall(false)">不抢</button>
+            
+            <!-- 出牌按钮组 -->
+            <button id="btn-pass" class="btn btn-gray" onclick="game.playerPass()">不出</button>
+            <button id="btn-hint" class="btn btn-blue" onclick="game.playerHint()">提示</button>
+            <button id="btn-play" class="btn" onclick="game.playerPlay()">出牌</button>
+            
+            <button id="btn-start" class="btn" style="display:block" onclick="game.start()">开始游戏</button>
+        </div>
+        <div id="my-hand" class="hand-container"></div>
+    </div>
+</div>
+
+<!-- 结算弹窗 -->
+<div id="modal">
+    <div class="modal-content">
+        <div id="modal-title" class="modal-title">胜利!</div>
+        <div id="modal-score" style="font-size:20px; margin-bottom:20px;">积分 +100</div>
+        <button class="modal-btn" onclick="game.start()">再来一局</button>
+    </div>
+</div>
+
+<script>
+/**
+ * 极简版斗地主逻辑
+ * 这里的AI只包含了基础的出牌逻辑（能压就压，压不过就过）
+ */
+
+// --- 基础数据定义 ---
+const SUITS = ['♠', '♥', '♣', '♦'];
+const VALUES = [
+    {v:3, l:'3'}, {v:4, l:'4'}, {v:5, l:'5'}, {v:6, l:'6'}, 
+    {v:7, l:'7'}, {v:8, l:'8'}, {v:9, l:'9'}, {v:10, l:'10'}, 
+    {v:11, l:'J'}, {v:12, l:'Q'}, {v:13, l:'K'}, {v:14, l:'A'}, {v:15, l:'2'}
+];
+const JOKER_S = {v:16, l:'小王', s:'black'};
+const JOKER_B = {v:17, l:'大王', s:'red'};
+
+// 积分系统
+let userScore = parseInt(localStorage.getItem('ddz_score')) || 1000;
+document.getElementById('my-score').innerText = userScore;
+
+function saveScore(delta) {
+    userScore += delta;
+    localStorage.setItem('ddz_score', userScore);
+    document.getElementById('my-score').innerText = userScore;
+}
+
+function resetScore() {
+    if(confirm('确定重置积分为1000吗？')) {
+        userScore = 1000;
+        localStorage.setItem('ddz_score', 1000);
+        document.getElementById('my-score').innerText = userScore;
+    }
+}
+
+// --- 游戏类 ---
+class Game {
+    constructor() {
+        this.reset();
+    }
+
+    reset() {
+        this.deck = [];
+        this.players = [[], [], []]; // 0:玩家, 1:电脑1(左), 2:电脑2(右)
+        this.landlordCards = [];
+        this.landlordIdx = -1;
+        this.curTurn = -1;
+        this.lastCards = null; // {playerId, cards, type, value}
+        this.state = 'idle'; // idle, bidding, playing, ended
+        
+        // UI清理
+        document.getElementById('table-cards').innerHTML = '';
+        document.getElementById('modal').style.display = 'none';
+        document.querySelectorAll('.role-badge').forEach(el => el.style.display = 'none');
+        this.hideBtns();
+    }
+
+    // 生成扑克
+    initDeck() {
+        this.deck = [];
+        for (let s = 0; s < 4; s++) {
+            for (let v of VALUES) {
+                this.deck.push({ val: v.v, label: v.l, suit: SUITS[s], color: (s===1||s===3)?'red':'black' });
+            }
+        }
+        this.deck.push({ val: JOKER_S.v, label: JOKER_S.l, suit: '', color: JOKER_S.s });
+        this.deck.push({ val: JOKER_B.v, label: JOKER_B.l, suit: '', color: JOKER_B.s });
+        
+        // 洗牌
+        for (let i = this.deck.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [this.deck[i], this.deck[j]] = [this.deck[j], this.deck[i]];
+        }
+    }
+
+    start() {
+        this.reset();
+        this.initDeck();
+        document.getElementById('btn-start').style.display = 'none';
+        
+        // 发牌
+        this.players[0] = this.deck.slice(0, 17);
+        this.players[1] = this.deck.slice(17, 34);
+        this.players[2] = this.deck.slice(34, 51);
+        this.landlordCards = this.deck.slice(51);
+        
+        this.sortHand(0);
+        this.sortHand(1);
+        this.sortHand(2);
+        
+        this.renderMyHand();
+        this.updateCounts();
+        
+        // 进入抢地主阶段
+        this.state = 'bidding';
+        this.curTurn = Math.floor(Math.random() * 3);
+        this.showMsg(`开始抢地主，${this.curTurn === 0 ? '你' : '电脑'+this.curTurn}先叫`);
+        this.nextStep();
+    }
+
+    sortHand(pid) {
+        this.players[pid].sort((a, b) => b.val - a.val);
+    }
+
+    nextStep() {
+        if (this.state === 'bidding') {
+            if (this.curTurn === 0) {
+                // 玩家叫分
+                this.showBtns(['btn-qiang', 'btn-buqiang']);
+            } else {
+                // 电脑随机叫
+                setTimeout(() => {
+                    let call = Math.random() > 0.4; // 60%几率抢
+                    if (call) this.setLandlord(this.curTurn);
+                    else {
+                        this.showMsg(`电脑${this.curTurn} 不抢`);
+                        this.curTurn = (this.curTurn + 1) % 3;
+                        // 如果转了一圈没人抢，默认给0号(简化逻辑)
+                        if(this.curTurn === 0 && this.landlordIdx === -1) {
+                            this.showMsg('没人抢，重新发牌');
+                            this.start(); // 简单重开
+                            return;
+                        }
+                        this.nextStep();
+                    }
+                }, 1000);
+            }
+        } else if (this.state === 'playing') {
+            if (this.curTurn === 0) {
+                // 玩家出牌
+                this.showBtns(['btn-play', 'btn-hint']);
+                if (this.lastCards && this.lastCards.playerId !== 0) {
+                    document.getElementById('btn-pass').style.display = 'block';
+                } else {
+                    document.getElementById('btn-pass').style.display = 'none'; // 先手不能不要
+                }
+            } else {
+                // 电脑出牌
+                this.hideBtns();
+                setTimeout(() => this.aiPlay(), 1200);
+            }
+        }
+    }
+
+    setLandlord(idx) {
+        this.landlordIdx = idx;
+        this.players[idx].push(...this.landlordCards);
+        this.sortHand(idx);
+        this.state = 'playing';
+        this.curTurn = idx; // 地主先出
+        
+        // UI更新
+        this.renderMyHand();
+        this.updateCounts();
+        this.showMsg(`${idx===0?'你':'电脑'+idx} 抢到了地主!`);
+        
+        // 显示底牌
+        let tipHtml = '<div style="font-size:12px;color:#fff">底牌: ';
+        this.landlordCards.forEach(c => tipHtml += `${c.label} `);
+        tipHtml += '</div>';
+        document.getElementById('msg-tip').innerHTML = tipHtml;
+        document.getElementById('msg-tip').style.display = 'block';
+        setTimeout(() => document.getElementById('msg-tip').style.display = 'none', 3000);
+
+        // 身份标示
+        const roles = ['地', '农'];
+        if(idx === 0) {
+            // 玩家地主
+        } else {
+            // 电脑地主
+            document.getElementById(`role-${idx}`).style.display = 'block';
+        }
+        this.nextStep();
+    }
+
+    playerCall(want) {
+        if (want) {
+            this.setLandlord(0);
+        } else {
+            this.showMsg('你不抢');
+            this.curTurn = 1;
+            this.nextStep();
+        }
+    }
+
+    // --- 出牌逻辑 ---
+
+    // 获取选中的牌
+    getSelectedCards() {
+        const els = document.querySelectorAll('.card.selected');
+        let indices = [];
+        els.forEach(el => indices.push(parseInt(el.dataset.idx)));
+        // 按索引排序（对应手牌的顺序）
+        indices.sort((a,b) => a-b);
+        return indices.map(i => this.players[0][i]);
+    }
+
+    playerPlay() {
+        const cards = this.getSelectedCards();
+        if (cards.length === 0) {
+            this.showMsg('请先选牌');
+            return;
+        }
+        
+        const typeObj = this.getCardType(cards);
+        if (!typeObj) {
+            this.showMsg('牌型不合法');
+            return;
+        }
+
+        if (this.canBeat(typeObj, cards)) {
+            // 出牌成功
+            this.doPlay(0, cards, typeObj);
+        } else {
+            this.showMsg('打不过上家!');
+        }
+    }
+
+    playerPass() {
+        this.showMsg('不出');
+        this.curTurn = (this.curTurn + 1) % 3;
+        this.nextStep();
+    }
+
+    playerHint() {
+        // 简单提示：找一个能管上的最小的牌
+        // 这里只是为了UI完整，由于是极简版，暂不实现复杂提示算法，建议玩家自己选
+        this.showMsg('请自己选牌(单机版练技术)');
+    }
+
+    // AI 思考出牌
+    aiPlay() {
+        const hand = this.players[this.curTurn];
+        let playCards = null;
+        let playType = null;
+
+        if (!this.lastCards || this.lastCards.playerId === this.curTurn) {
+            // 1. 自由出牌 (先手)
+            // 策略：出最小的一张，或者最小的对子
+            // 极简AI：这就出最后一张(最小的)
+            let card = hand[hand.length - 1];
+            playCards = [card];
+            playType = {type: 'single', val: card.val};
+        } else {
+            // 2. 跟牌
+            const target = this.lastCards;
+            // 简单遍历寻找能管上的牌
+            // 只支持：单张管单张，对子管对子
+            if (target.type === 'single') {
+                for (let i = hand.length - 1; i >= 0; i--) {
+                    if (hand[i].val > target.value) {
+                        playCards = [hand[i]];
+                        playType = {type: 'single', val: hand[i].val};
+                        break;
+                    }
+                }
+            } else if (target.type === 'pair') {
+                 // 找对子
+                 for (let i = hand.length - 1; i > 0; i--) {
+                     if (hand[i].val === hand[i-1].val && hand[i].val > target.value) {
+                         playCards = [hand[i], hand[i-1]];
+                         playType = {type: 'pair', val: hand[i].val};
+                         break;
+                     }
+                 }
+            } else if (target.type === 'bomb') {
+                // 找更大的炸弹 (极简版略，普通AI不爱炸)
+            }
+        }
+
+        if (playCards) {
+            this.doPlay(this.curTurn, playCards, playType);
+        } else {
+            this.showMsg(`电脑${this.curTurn} 不出`);
+            this.curTurn = (this.curTurn + 1) % 3;
+            this.nextStep();
+        }
+    }
+
+    doPlay(pid, cards, typeObj) {
+        // 从手牌移除
+        const hand = this.players[pid];
+        // 这是一个对象数组移除，比较麻烦，利用 val 和 suit 匹配
+        for(let c of cards) {
+            const idx = hand.findIndex(h => h.val === c.val && h.suit === c.suit);
+            if(idx > -1) hand.splice(idx, 1);
+        }
+        
+        // 更新牌局状态
+        this.lastCards = {
+            playerId: pid,
+            cards: cards,
+            type: typeObj.type,
+            value: typeObj.val
+        };
+        
+        // 渲染桌面
+        this.renderTable(cards);
+        this.updateCounts();
+        if(pid === 0) this.renderMyHand();
+
+        // 检查胜利
+        if (hand.length === 0) {
+            this.gameOver(pid);
+            return;
+        }
+
+        // 下一位
+        this.curTurn = (this.curTurn + 1) % 3;
+        this.nextStep();
+    }
+
+    gameOver(winnerIdx) {
+        this.state = 'ended';
+        let isLandlordWin = (winnerIdx === this.landlordIdx);
+        let amILandlord = (this.landlordIdx === 0);
+        
+        let win = false;
+        if (amILandlord && isLandlordWin) win = true;
+        if (!amILandlord && !isLandlordWin) win = true;
+
+        const scoreChange = win ? 100 : -100;
+        saveScore(scoreChange);
+
+        const modal = document.getElementById('modal');
+        const title = document.getElementById('modal-title');
+        const scoreTxt = document.getElementById('modal-score');
+        
+        modal.style.display = 'flex';
+        title.innerText = win ? '胜利!' : '失败';
+        title.style.color = win ? 'red' : 'gray';
+        scoreTxt.innerText = win ? `积分 +100` : `积分 -100`;
+    }
+
+    // --- 核心规则判定 ---
+    getCardType(cards) {
+        const len = cards.length;
+        const v = cards.map(c => c.val);
+        
+        if (len === 1) return {type: 'single', val: v[0]};
+        
+        if (len === 2) {
+            if (v[0] === 17 && v[1] === 16) return {type: 'rocket', val: 999}; // 王炸
+            if (v[0] === v[1]) return {type: 'pair', val: v[0]};
+        }
+        
+        if (len === 3) {
+            if (v[0] === v[2]) return {type: 'triple', val: v[0]};
+        }
+
+        if (len === 4) {
+            if (v[0] === v[3]) return {type: 'bomb', val: v[0]}; // 炸弹
+            // 三带一 (3个一样的 + 1个杂牌)
+            if (v[0] === v[2] || v[1] === v[3]) {
+                 // 简单判定：取中间那个肯定是三张的值
+                 return {type: '3+1', val: v[1]};
+            }
+        }
+        
+        // 极简版暂不处理顺子、连对、飞机，以降低代码复杂度保证稳定性
+        return null;
+    }
+
+    canBeat(myType, myCards) {
+        if (!this.lastCards || this.lastCards.playerId === 0) return true; // 先手或自己接自己
+        
+        const enemy = this.lastCards;
+        
+        // 王炸无敌
+        if (myType.type === 'rocket') return true;
+        if (enemy.type === 'rocket') return false;
+
+        // 炸弹管普通
+        if (myType.type === 'bomb' && enemy.type !== 'bomb') return true;
+        
+        // 同类型比较
+        if (myType.type === enemy.type) {
+             if (myType.type === 'single' || myType.type === 'pair' || myType.type === 'triple' || myType.type === 'bomb') {
+                 return myType.val > enemy.value;
+             }
+             if (myType.type === '3+1' && myCards.length === enemy.cards.length) {
+                 return myType.val > enemy.value;
+             }
+        }
+        return false;
+    }
+
+    // --- 渲染辅助 ---
+    renderMyHand() {
+        const div = document.getElementById('my-hand');
+        div.innerHTML = '';
+        this.players[0].forEach((c, idx) => {
+            const el = document.createElement('div');
+            el.className = `card ${c.color}`;
+            el.dataset.idx = idx;
+            el.innerHTML = `
+                <div class="card-top">${c.label}<br><span style="font-size:14px">${c.suit}</span></div>
+                <div class="card-main">${c.label}</div>
+            `;
+            el.onclick = () => {
+                el.classList.toggle('selected');
+            };
+            div.appendChild(el);
+        });
+    }
+
+    renderTable(cards) {
+        const div = document.getElementById('table-cards');
+        div.innerHTML = '';
+        cards.forEach(c => {
+            const el = document.createElement('div');
+            el.className = `card ${c.color}`;
+            el.style.width = '40px'; // 桌面牌小一点
+            el.style.height = '56px';
+            el.innerHTML = `<div class="card-main" style="font-size:20px">${c.label}</div>`;
+            div.appendChild(el);
+        });
+    }
+
+    updateCounts() {
+        document.getElementById('count-1').innerText = this.players[1].length;
+        document.getElementById('count-2').innerText = this.players[2].length;
+    }
+
+    showBtns(ids) {
+        this.hideBtns();
+        ids.forEach(id => document.getElementById(id).style.display = 'block');
+    }
+
+    hideBtns() {
+        document.querySelectorAll('#controls .btn').forEach(b => b.style.display = 'none');
+    }
+
+    showMsg(txt) {
+        const el = document.getElementById('msg-tip');
+        el.innerText = txt;
+        el.style.display = 'block';
+        setTimeout(() => el.style.display = 'none', 1500);
+    }
+}
+
+// 启动
+const game = new Game();
+
+</script>
+</body>
+</html>
